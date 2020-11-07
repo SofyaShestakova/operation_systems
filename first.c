@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
 
+#include <stdlib.h>
 #include <stdio.h>
 #include<sys/mman.h>
 #include <pthread.h>
 #include <fcntl.h>
-#include <stdlib.h>
 #include <semaphore.h>
 #include <unistd.h>
 #include <limits.h>
@@ -31,9 +31,26 @@ const int file_size = E;
 const int files_amount = A / E + (A % E > 0 ? 1 : 0);
 
 void create_part_of_memory() {
-    char *start = (char *) malloc(A);
+    int mem_size = A;
+    int threads_amount = D;
+
+    int mem_size_per_thread = mem_size / threads_amount;
+
+    void *start = (char *) malloc(mem_size);
     FILE *urandom = fopen("/dev/urandom", "r");
-    void *thread_func() { fread((void *) start, 1, A, urandom); }
+
+    int thread_idx = 0;
+    void *thread_func() {
+        sem_wait(&semaphore);
+        int cur_thread_idx = thread_idx++;
+
+        void *mem_start = start + cur_thread_idx * mem_size_per_thread;
+        int effective_mem_size = mem_size_per_thread;
+
+        fread((void *) start, 1, effective_mem_size, urandom);
+
+        sem_post(&semaphore);
+    }
 
     pthread_t threads[D];
     for (int i = 0; i < D; i++) {
