@@ -1,9 +1,12 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include<sys/mman.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <semaphore.h>
+#include <unistd.h>
 #include <limits.h>
 
 #define A (316<<20)
@@ -59,11 +62,12 @@ void write_files() {
         sem_wait(&semaphore);
 
         snprintf(result_name, 13, "lab_os_%d.bin", cur_file_idx);
-        int flag = O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT;
-        FILE *file = fopen(result_name, flag);
+
+        int fd = open(result_name, (O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT));
         for (int i = 0; i < file_blocks_amount; i++) {
-            fwrite(memory_start + (cur_file_idx * file_blocks_amount + i) * block_size, 1, block_size, file);
+            write(fd, memory_start + (cur_file_idx * file_blocks_amount + i) * block_size, block_size);
         }
+        close(fd);
 
         sem_post(&semaphore);
 
@@ -82,7 +86,7 @@ void read_and_search_min() {
             snprintf(result_name, 13, "lab_os_%d.bin", i);
             FILE *file = fopen(result_name, "r");
 
-            int read_numbers = read(file, numbers, file_size) / sizeof(int);
+            int read_numbers = fread((void *) numbers, 1, file_size, file) / sizeof(int);
             for (int j = 0; j < read_numbers; ++j) {
                 int number = numbers[j];
                 sem_wait(&semaphore);
